@@ -30,6 +30,19 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
 LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
 OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 SUCH DAMAGE.
+
+
+Example use with samr21-xpro to a FIFO:
+
+   ./sniffer.py serial /dev/ttyACM0 115200 20 >/tmp/sharkfin
+
+2016-05-28 kbee Modified for use with openwsn-dissectors project.
+           Use file type 195, LINKTYPE_IEEE802_15_4, rather than 230,
+           LINKTYPE_IEEE802_15_4_NOFCS. See the link types reference [1].
+           Modified the global header to specify new file type, and also added
+           two 0x0 bytes for the FCS.
+
+[1] http://www.tcpdump.org/linktypes.html
 '''
 
 from __future__ import print_function
@@ -47,7 +60,8 @@ MINOR = 4
 ZONE = 0
 SIG = 0
 SNAPLEN = 0xffff
-NETWORK = 230       # 802.15.4 no FCS
+#NETWORK = 230       # 802.15.4 no FCS
+NETWORK = 195       # 802.15.4 with FCS
 
 
 def configure_interface(port, channel):
@@ -91,7 +105,7 @@ def generate_pcap(port, out):
             sec = int(now)
             usec = int((now - sec) * 1000000)
             length = int(pkt_header.group(1), 16)
-            out.write(pack('<LLLL', sec, usec, length, length))
+            out.write(pack('<LLLL', sec, usec, length+2, length+2))
             out.flush()
             count += 1
             sys.stderr.write("RX: %i\r" % count)
@@ -103,6 +117,8 @@ def generate_pcap(port, out):
                 byte = re.match(r"0x(\w\w)", part)
                 if byte:
                     out.write(pack('<B', int(byte.group(1), 16)))
+            # Add 0x0 bytes for FCS for file type 195.
+            out.write(pack('<BB', 0, 0))
             out.flush()
 
 
